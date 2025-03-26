@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import EventItem from './EventItem';
 import { ChevronLeft, ChevronRight } from 'react-feather';
 import React from 'react';
+import { DATA_ENDPOINTS } from '../config/api';
 
 export default function CalendarGrid({ selectedMember, setSelectedMember }) {
   const { user, timezone } = useAuth();
@@ -21,7 +22,7 @@ export default function CalendarGrid({ selectedMember, setSelectedMember }) {
   useEffect(() => {
     const fetchMembers = async () => {
       try {
-        const res = await fetch(`${process.env.REACT_APP_API_URL}/api/members`, {
+        const res = await fetch(DATA_ENDPOINTS.MEMBERS, {
           credentials: 'include',
         });
         const data = await res.json();
@@ -128,7 +129,7 @@ export default function CalendarGrid({ selectedMember, setSelectedMember }) {
           // Fetch events for all members
           const promises = members.map(member =>
             fetch(
-              `${process.env.REACT_APP_API_URL}/api/availability/${member.id}?timezone=${encodeURIComponent(
+              `${DATA_ENDPOINTS.AVAILABILITY(member.id)}?timezone=${encodeURIComponent(
                 timezone
               )}&start=${startOfWeek.toISOString()}&end=${endOfWeek.toISOString()}`,
               { credentials: 'include' }
@@ -147,7 +148,7 @@ export default function CalendarGrid({ selectedMember, setSelectedMember }) {
         } else {
           // Fetch events for single member
           const res = await fetch(
-            `${process.env.REACT_APP_API_URL}/api/availability/${selectedMember}?timezone=${encodeURIComponent(
+            `${DATA_ENDPOINTS.AVAILABILITY(selectedMember)}?timezone=${encodeURIComponent(
               timezone
             )}&start=${startOfWeek.toISOString()}&end=${endOfWeek.toISOString()}`,
             { credentials: 'include' }
@@ -278,7 +279,7 @@ const DayDetailView = ({ date, events, onClose, timezone, selectedMember }) => {
   useEffect(() => {
     const fetchMembers = async () => {
       try {
-        const res = await fetch(`${process.env.REACT_APP_API_URL}/api/members`, {
+        const res = await fetch(DATA_ENDPOINTS.MEMBERS, {
           credentials: 'include',
         });
         const data = await res.json();

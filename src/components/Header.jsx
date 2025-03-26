@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { ArrowLeft, Menu } from 'react-feather';
 import googleLogo from '../assets/google-logo.svg';
 import Logo from './Logo';
+import { AUTH_ENDPOINTS } from '../config/api';
 
 export default function Header({ selectedMember, setSelectedMember }) {
   const { user, logout, timezone, setTimezone } = useAuth();
@@ -31,7 +32,7 @@ export default function Header({ selectedMember, setSelectedMember }) {
   };
 
   const handleLogin = () => {
-    window.location.href = `${process.env.REACT_APP_API_URL}/auth/google`;
+    window.location.href = AUTH_ENDPOINTS.GOOGLE_LOGIN;
   };
 
   const toggleMobileMenu = () => {

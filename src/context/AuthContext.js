@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect } from 'react';
+import { AUTH_ENDPOINTS } from '../config/api';
 
 const AuthContext = createContext();
 
@@ -19,7 +20,7 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     const checkAuth = async () => {
       try {
-        const res = await fetch(`${process.env.REACT_APP_API_URL}/api/me`, {
+        const res = await fetch(AUTH_ENDPOINTS.GET_ME, {
           credentials: 'include'
         });
         const data = await res.json();
@@ -34,7 +35,7 @@ export function AuthProvider({ children }) {
   }, []);
 
   const logout = async () => {
-    await fetch(`${process.env.REACT_APP_API_URL}/logout`, {
+    await fetch(AUTH_ENDPOINTS.LOGOUT, {
       method: 'POST',
       credentials: 'include'
     });
