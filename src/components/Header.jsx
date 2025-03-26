@@ -12,7 +12,7 @@ export default function Header({ selectedMember, setSelectedMember }) {
   useEffect(() => {
     const fetchMembers = async () => {
       try {
-        const res = await fetch('http://localhost:5000/api/members', {
+        const res = await fetch(`${process.env.REACT_APP_API_URL}/api/members`, {
           credentials: 'include',
         });
         const data = await res.json();
@@ -31,7 +31,7 @@ export default function Header({ selectedMember, setSelectedMember }) {
   };
 
   const handleLogin = () => {
-    window.location.href = 'http://localhost:5000/auth/google';
+    window.location.href = `${process.env.REACT_APP_API_URL}/auth/google`;
   };
 
   const toggleMobileMenu = () => {

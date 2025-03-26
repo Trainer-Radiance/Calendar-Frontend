@@ -21,7 +21,7 @@ export default function CalendarGrid({ selectedMember, setSelectedMember }) {
   useEffect(() => {
     const fetchMembers = async () => {
       try {
-        const res = await fetch('http://localhost:5000/api/members', {
+        const res = await fetch(`${process.env.REACT_APP_API_URL}/api/members`, {
           credentials: 'include',
         });
         const data = await res.json();
@@ -128,7 +128,7 @@ export default function CalendarGrid({ selectedMember, setSelectedMember }) {
           // Fetch events for all members
           const promises = members.map(member =>
             fetch(
-              `http://localhost:5000/api/availability/${member.id}?timezone=${encodeURIComponent(
+              `${process.env.REACT_APP_API_URL}/api/availability/${member.id}?timezone=${encodeURIComponent(
                 timezone
               )}&start=${startOfWeek.toISOString()}&end=${endOfWeek.toISOString()}`,
               { credentials: 'include' }
@@ -147,7 +147,7 @@ export default function CalendarGrid({ selectedMember, setSelectedMember }) {
         } else {
           // Fetch events for single member
           const res = await fetch(
-            `http://localhost:5000/api/availability/${selectedMember}?timezone=${encodeURIComponent(
+            `${process.env.REACT_APP_API_URL}/api/availability/${selectedMember}?timezone=${encodeURIComponent(
               timezone
             )}&start=${startOfWeek.toISOString()}&end=${endOfWeek.toISOString()}`,
             { credentials: 'include' }
@@ -278,7 +278,7 @@ const DayDetailView = ({ date, events, onClose, timezone, selectedMember }) => {
   useEffect(() => {
     const fetchMembers = async () => {
       try {
-        const res = await fetch('http://localhost:5000/api/members', {
+        const res = await fetch(`${process.env.REACT_APP_API_URL}/api/members`, {
           credentials: 'include',
         });
         const data = await res.json();
