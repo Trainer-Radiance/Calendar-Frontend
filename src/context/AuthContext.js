@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import { AUTH_ENDPOINTS } from '../config/api';
+import { refreshCsrfToken } from '../utils/api';
 
 const AuthContext = createContext();
 
@@ -20,13 +21,44 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     const checkAuth = async () => {
       try {
+        console.log('Checking authentication...');
+
+        // Refresh CSRF token first (dummy function now)
+        await refreshCsrfToken();
+
+        // Use session-based authentication
         const res = await fetch(AUTH_ENDPOINTS.GET_ME, {
-          credentials: 'include'
+          credentials: 'include',
+          headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json'
+          }
         });
-        const data = await res.json();
-        setUser(data.user);
+
+        if (res.ok) {
+          const data = await res.json();
+          console.log('Auth data from session:', data);
+
+          if (data.user) {
+            setUser(data.user);
+
+            // Check if user has Google tokens
+            if (!data.user.hasTokens) {
+              console.warn('User is authenticated but has no Google tokens');
+            } else {
+              console.log('User has Google tokens available');
+            }
+          } else {
+            console.log('No user in session');
+            setUser(null);
+          }
+        } else {
+          console.log(`Session auth failed: ${res.status}`);
+          setUser(null);
+        }
       } catch (error) {
         console.error('Auth check failed:', error);
+        setUser(null);
       } finally {
         setLoading(false);
       }
@@ -35,11 +67,25 @@ export function AuthProvider({ children }) {
   }, []);
 
   const logout = async () => {
-    await fetch(AUTH_ENDPOINTS.LOGOUT, {
-      method: 'POST',
-      credentials: 'include'
-    });
-    setUser(null);
+    try {
+      // Refresh CSRF token before logout
+      await refreshCsrfToken();
+
+      // Session-based logout
+      await fetch(AUTH_ENDPOINTS.LOGOUT, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          // CSRF token will be added by fetchWithAuth
+        }
+      });
+
+      setUser(null);
+    } catch (error) {
+      console.error('Logout failed:', error);
+      setUser(null);
+    }
   };
 
   // Get the current timezone abbreviation (e.g., EST or EDT)
@@ -52,12 +98,12 @@ export function AuthProvider({ children }) {
   };
 
   return (
-    <AuthContext.Provider 
-      value={{ 
-        user, 
-        loading, 
-        logout, 
-        timezone, 
+    <AuthContext.Provider
+      value={{
+        user,
+        loading,
+        logout,
+        timezone,
         setTimezone,
         timezoneAbbr: getTimezoneAbbr()
       }}

@@ -3,7 +3,8 @@ import { useAuth } from '../context/AuthContext';
 import EventItem from './EventItem';
 import { ChevronLeft, ChevronRight } from 'react-feather';
 import React from 'react';
-import { DATA_ENDPOINTS } from '../config/api';
+import { DATA_ENDPOINTS, AUTH_ENDPOINTS } from '../config/api';
+import { fetchWithAuth } from '../utils/api';
 
 export default function CalendarGrid({ selectedMember, setSelectedMember }) {
   const { user, timezone } = useAuth();
@@ -22,13 +23,18 @@ export default function CalendarGrid({ selectedMember, setSelectedMember }) {
   useEffect(() => {
     const fetchMembers = async () => {
       try {
-        const res = await fetch(DATA_ENDPOINTS.MEMBERS, {
-          credentials: 'include',
-        });
+        const res = await fetchWithAuth(DATA_ENDPOINTS.MEMBERS);
+
+        if (!res.ok) {
+          throw new Error(`Failed to fetch members: ${res.status}`);
+        }
+
         const data = await res.json();
-        setMembers(data);
+        console.log('CalendarGrid - Members data:', data);
+        setMembers(data || []); // Ensure we always have an array
       } catch (error) {
         console.error('Error fetching members:', error);
+        setMembers([]); // Set empty array on error to prevent map errors
       }
     };
 
@@ -112,6 +118,15 @@ export default function CalendarGrid({ selectedMember, setSelectedMember }) {
     const fetchEvents = async () => {
       try {
         setLoading(true);
+
+        // Check if user has Google tokens
+        if (user && !user.hasTokens) {
+          console.warn('User has no Google tokens, cannot fetch calendar events');
+          setEvents({});
+          setLoading(false);
+          return;
+        }
+
         const startOfWeek = new Date(currentWeekStart);
         const endOfWeek = new Date(startOfWeek);
         endOfWeek.setDate(startOfWeek.getDate() + 6);
@@ -124,38 +139,67 @@ export default function CalendarGrid({ selectedMember, setSelectedMember }) {
         });
 
         let allEvents = [];
-        
+
         if (selectedMember === 'all') {
           // Fetch events for all members
-          const promises = members.map(member =>
-            fetch(
-              `${DATA_ENDPOINTS.AVAILABILITY(member.id)}?timezone=${encodeURIComponent(
+          const promises = members.map(async member => {
+            try {
+              const url = `${DATA_ENDPOINTS.AVAILABILITY(member.id)}?timezone=${encodeURIComponent(
                 timezone
-              )}&start=${startOfWeek.toISOString()}&end=${endOfWeek.toISOString()}`,
-              { credentials: 'include' }
-            ).then(res => res.json())
-          );
+              )}&start=${startOfWeek.toISOString()}&end=${endOfWeek.toISOString()}`;
+
+              const res = await fetchWithAuth(url);
+
+              if (!res.ok) {
+                console.error(`Error fetching availability for member ${member.id}: ${res.status}`);
+                return [];
+              }
+
+              try {
+                const data = await res.json();
+                return data || [];
+              } catch (jsonError) {
+                console.error(`Error parsing JSON for member ${member.id}:`, jsonError);
+                return [];
+              }
+            } catch (err) {
+              console.error(`Failed to fetch availability for member ${member.id}:`, err);
+              return [];
+            }
+          });
 
           const results = await Promise.all(promises);
           console.log('API Response for all members:', results);
           results.forEach((memberEvents, index) => {
-            const memberName = members[index].name;
-            memberEvents.forEach(event => {
-              event.memberName = memberName;
-            });
-            allEvents = [...allEvents, ...memberEvents];
+            if (Array.isArray(memberEvents)) {
+              const memberName = members[index]?.name || 'Unknown';
+              memberEvents.forEach(event => {
+                event.memberName = memberName;
+              });
+              allEvents = [...allEvents, ...memberEvents];
+            }
           });
         } else {
           // Fetch events for single member
-          const res = await fetch(
-            `${DATA_ENDPOINTS.AVAILABILITY(selectedMember)}?timezone=${encodeURIComponent(
-              timezone
-            )}&start=${startOfWeek.toISOString()}&end=${endOfWeek.toISOString()}`,
-            { credentials: 'include' }
-          );
-          const data = await res.json();
-          console.log('API Response for single member:', data);
-          allEvents = data;
+          const url = `${DATA_ENDPOINTS.AVAILABILITY(selectedMember)}?timezone=${encodeURIComponent(
+            timezone
+          )}&start=${startOfWeek.toISOString()}&end=${endOfWeek.toISOString()}`;
+
+          const res = await fetchWithAuth(url);
+
+          if (!res.ok) {
+            console.log(`Error ${res.status} for member ${selectedMember}, using empty array`);
+            allEvents = [];
+          } else {
+            try {
+              const data = await res.json();
+              console.log('API Response for single member:', data);
+              allEvents = data || [];
+            } catch (jsonError) {
+              console.error('Error parsing JSON:', jsonError);
+              allEvents = [];
+            }
+          }
         }
 
         const groupedEvents = groupEventsByDay(allEvents);
@@ -173,7 +217,23 @@ export default function CalendarGrid({ selectedMember, setSelectedMember }) {
     }
   }, [user, selectedMember, timezone, currentWeekStart, groupEventsByDay, members]);
 
+  // Function to redirect to Google OAuth
+  const handleReAuthenticate = () => {
+    window.location.href = AUTH_ENDPOINTS.GOOGLE_LOGIN;
+  };
+
   if (!user) return <div className="auth-warning">Please login to view calendar</div>;
+
+  if (user && !user.hasTokens) {
+    return (
+      <div className="auth-warning">
+        <p>Google Calendar access is not available. Please re-authenticate to access your calendar.</p>
+        <button onClick={handleReAuthenticate} className="auth-button">
+          Re-authenticate with Google
+        </button>
+      </div>
+    );
+  }
 
   if (!selectedMember) {
     return (
@@ -219,7 +279,7 @@ export default function CalendarGrid({ selectedMember, setSelectedMember }) {
 
           return (
             <div key={dateString} className="day-column">
-              <div 
+              <div
                 className="day-header"
                 onClick={() => setSelectedDate(date)}
                 style={{ cursor: 'pointer' }}
@@ -322,18 +382,18 @@ const DayDetailView = ({ date, events, onClose, timezone, selectedMember }) => {
   // Filter events for the selected date
   const dateEvents = events.filter(event => {
     const eventDate = new Date(event.start.dateTime);
-    return eventDate.toLocaleDateString('en-US', { timeZone: timezone }) === 
+    return eventDate.toLocaleDateString('en-US', { timeZone: timezone }) ===
            date.toLocaleDateString('en-US', { timeZone: timezone });
   });
 
   // Group events by time block
   const getTimeBlocks = () => {
     const blocks = [];
-    
+
     // Process the events and track their display status
     const processedEvents = {};
     const relevantMembers = selectedMember === 'all' ? members : members.filter(m => m.id === parseInt(selectedMember));
-    
+
     // Function to calculate minutes since midnight
     const getMinutesSinceMidnight = (dateStr) => {
       const date = new Date(dateStr);
@@ -345,7 +405,7 @@ const DayDetailView = ({ date, events, onClose, timezone, selectedMember }) => {
       const now = new Date();
       const selectedDateStr = date.toLocaleDateString('en-US', { timeZone: timezone });
       const currentDateStr = now.toLocaleDateString('en-US', { timeZone: timezone });
-      
+
       if (selectedDateStr === currentDateStr) {
         const minutes = getMinutesSinceMidnight(now);
         return `${(minutes / 1440) * 100}%`;
@@ -355,7 +415,7 @@ const DayDetailView = ({ date, events, onClose, timezone, selectedMember }) => {
 
     relevantMembers.forEach(member => {
       processedEvents[member.id] = new Map();
-      
+
       const memberEvents = dateEvents.filter(event => {
         if (selectedMember === 'all') {
           return event.memberName === member.name;
@@ -365,12 +425,12 @@ const DayDetailView = ({ date, events, onClose, timezone, selectedMember }) => {
       });
 
       memberEvents.sort((a, b) => new Date(a.start.dateTime) - new Date(b.start.dateTime));
-      
+
       memberEvents.forEach(event => {
         const eventKey = `${event.id}-${event.start.dateTime}`;
         const startMinutes = getMinutesSinceMidnight(event.start.dateTime);
         const endMinutes = getMinutesSinceMidnight(event.end.dateTime);
-        
+
         processedEvents[member.id].set(eventKey, {
           ...event,
           displayed: false,
@@ -396,30 +456,30 @@ const DayDetailView = ({ date, events, onClose, timezone, selectedMember }) => {
       const timeLabel = formatHourLabel(hour);
       const hourStartMinutes = hour * 60;
       const hourEndMinutes = (hour + 1) * 60;
-      
+
       const memberSlots = relevantMembers.map(member => {
         const memberEventsList = Array.from(processedEvents[member.id].values());
-        
+
         // Get all events that overlap with this hour
         const hourEvents = memberEventsList.filter(event => {
           if (event.displayed) return false;
-          
+
           // Check if event overlaps with this hour
           const eventOverlapsHour = (
             (event.startMinutes < hourEndMinutes && event.endMinutes > hourStartMinutes) ||
             (event.startMinutes >= hourStartMinutes && event.startMinutes < hourEndMinutes)
           );
-          
+
           if (eventOverlapsHour) {
             event.displayed = true;
             return true;
           }
-          
+
           return false;
         });
 
         const isBusy = hourEvents.length > 0;
-        
+
         const getEventType = (event) => {
           const titleLower = (event.summary || '').toLowerCase();
           if (titleLower.includes('meeting')) return 'meeting';
@@ -436,11 +496,11 @@ const DayDetailView = ({ date, events, onClose, timezone, selectedMember }) => {
             event.durationMinutes,
             60 - startMinutes // Cap at remaining minutes in the hour
           );
-          
+
           // Calculate percentage-based positioning
           const topPercentage = (startMinutes / 60) * 100;
           const heightPercentage = (durationInMinutes / 60) * 100;
-          
+
           return {
             position: 'absolute',
             top: `${topPercentage}%`,
@@ -450,14 +510,14 @@ const DayDetailView = ({ date, events, onClose, timezone, selectedMember }) => {
             zIndex: event.startMinutes
           };
         };
-        
+
         return (
-          <div 
-            key={member.id} 
+          <div
+            key={member.id}
             className={`time-slot ${isBusy ? 'busy' : 'available'}`}
           >
             {hourEvents.map((event) => (
-              <div 
+              <div
                 key={`${event.id}-${hour}`}
                 className={`event-details ${getEventType(event)}`}
                 style={getEventStyles(event)}
@@ -475,17 +535,17 @@ const DayDetailView = ({ date, events, onClose, timezone, selectedMember }) => {
           </div>
         );
       });
-      
+
       blocks.push(
         <div key={hour} className="time-block">
           <div className="time-label">{timeLabel}</div>
           <div className="slots-row">
             {memberSlots}
             {getCurrentTimePosition() && hour === Math.floor(getMinutesSinceMidnight(currentTime) / 60) && (
-              <div 
-                className="current-time-indicator" 
-                style={{ 
-                  top: `${((getMinutesSinceMidnight(currentTime) % 60) / 60) * 100}%` 
+              <div
+                className="current-time-indicator"
+                style={{
+                  top: `${((getMinutesSinceMidnight(currentTime) % 60) / 60) * 100}%`
                 }}
               />
             )}
@@ -493,7 +553,7 @@ const DayDetailView = ({ date, events, onClose, timezone, selectedMember }) => {
         </div>
       );
     }
-    
+
     return blocks;
   };
 
@@ -513,7 +573,7 @@ const DayDetailView = ({ date, events, onClose, timezone, selectedMember }) => {
             <div className="time-header"></div>
             {selectedMember === 'all' ? members.map(member => (
               <div key={member.id} className="member-header">
-                <div className="member-avatar" style={{ 
+                <div className="member-avatar" style={{
                   backgroundColor: `hsl(${member.id * 60}, 70%, 60%)`
                 }}>
                   {member.name.charAt(0)}
@@ -522,7 +582,7 @@ const DayDetailView = ({ date, events, onClose, timezone, selectedMember }) => {
               </div>
             )) : (
               <div className="member-header">
-                <div className="member-avatar" style={{ 
+                <div className="member-avatar" style={{
                   backgroundColor: `hsl(${members.find(m => m.id === parseInt(selectedMember))?.id * 60 || 0}, 70%, 60%)`
                 }}>
                   {members.find(m => m.id === parseInt(selectedMember))?.name.charAt(0)}

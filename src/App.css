@@ -814,7 +814,7 @@ body {
     margin-top: 2px;
   }
 
-  .time-icon, 
+  .time-icon,
   .member-icon {
     font-size: 0.8rem;
   }
@@ -911,7 +911,7 @@ body {
     font-size: 0.65rem;
   }
 
-  .time-icon, 
+  .time-icon,
   .member-icon {
     font-size: 0.75rem;
   }
@@ -969,7 +969,7 @@ body {
     margin-top: 3px;
   }
 
-  .time-icon, 
+  .time-icon,
   .member-icon {
     font-size: 0.85rem;
   }
@@ -2347,6 +2347,27 @@ body {
   margin: 1rem;
 }
 
+/* Re-authentication button */
+.auth-button {
+  background: linear-gradient(135deg, #6366f1, #4f46e5);
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 1rem;
+  margin-top: 20px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 6px rgba(99, 102, 241, 0.2);
+}
+
+.auth-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 12px rgba(99, 102, 241, 0.3);
+  background: linear-gradient(135deg, #4f46e5, #4338ca);
+}
+
 .auth-warning span[role="img"] {
   font-size: 2.5rem;
   margin-bottom: 1.5rem;
@@ -2776,7 +2797,7 @@ body {
     border-left-width: 3px;
   }
 
-  .time-icon, 
+  .time-icon,
   .member-icon {
     transform: translateZ(0);
   }
@@ -2928,7 +2949,7 @@ body {
     border-left-width: 3px;
   }
 
-  .time-icon, 
+  .time-icon,
   .member-icon {
     transform: translateZ(0);
   }

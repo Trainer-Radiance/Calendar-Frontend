@@ -3,7 +3,8 @@ import { useAuth } from '../context/AuthContext';
 import { ArrowLeft, Menu } from 'react-feather';
 import googleLogo from '../assets/google-logo.svg';
 import Logo from './Logo';
-import { AUTH_ENDPOINTS } from '../config/api';
+import { AUTH_ENDPOINTS, DATA_ENDPOINTS } from '../config/api';
+import { fetchWithAuth } from '../utils/api';
 
 export default function Header({ selectedMember, setSelectedMember }) {
   const { user, logout, timezone, setTimezone } = useAuth();
@@ -13,13 +14,19 @@ export default function Header({ selectedMember, setSelectedMember }) {
   useEffect(() => {
     const fetchMembers = async () => {
       try {
-        const res = await fetch(`${process.env.REACT_APP_API_URL}/api/members`, {
-          credentials: 'include',
-        });
+        // Use DATA_ENDPOINTS and fetchWithAuth for JWT authentication
+        const res = await fetchWithAuth(DATA_ENDPOINTS.MEMBERS);
+
+        if (!res.ok) {
+          throw new Error(`Failed to fetch members: ${res.status}`);
+        }
+
         const data = await res.json();
-        setMembers(data);
+        console.log('Members data:', data);
+        setMembers(data || []); // Ensure we always have an array
       } catch (error) {
         console.error('Error fetching members:', error);
+        setMembers([]); // Set empty array on error to prevent map errors
       }
     };
 
@@ -48,7 +55,7 @@ export default function Header({ selectedMember, setSelectedMember }) {
             <p className="subtitle">Manage your team's calendar access and availability</p>
           </div>
           <div className="dashboard-actions">
-            <button 
+            <button
               className="primary-action-btn"
               onClick={() => handleMemberClick('all')}
             >
@@ -62,7 +69,7 @@ export default function Header({ selectedMember, setSelectedMember }) {
           {members.map((member) => (
             <div key={member.id} className="team-card">
               <div className="card-header">
-                <div className="member-avatar" style={{ 
+                <div className="member-avatar" style={{
                   backgroundColor: `hsl(${member.id * 60}, 70%, 60%)`
                 }}>
                   {member.name.charAt(0).toUpperCase()}
@@ -77,7 +84,7 @@ export default function Header({ selectedMember, setSelectedMember }) {
                 <p className="member-email">{member.email}</p>
               </div>
               <div className="card-footer">
-                <button 
+                <button
                   className="calendar-btn"
                   onClick={() => handleMemberClick(member.id)}
                 >
@@ -97,11 +104,11 @@ export default function Header({ selectedMember, setSelectedMember }) {
       <div className={`header ${!user ? 'login-header' : ''} ${mobileMenuOpen ? 'mobile-menu-open' : ''}`}>
         <div className="header-main">
           {user && selectedMember && (
-            <button 
-              className="back-button" 
+            <button
+              className="back-button"
               onClick={() => setSelectedMember(null)}
             >
-              <ArrowLeft size={20} /> 
+              <ArrowLeft size={20} />
               <span className="button-text">Back to Members</span>
             </button>
           )}
@@ -145,7 +152,7 @@ export default function Header({ selectedMember, setSelectedMember }) {
           )}
         </div>
       </div>
-      
+
       {user && !selectedMember && renderTeamMembersList()}
     </>
   );

@@ -2,8 +2,8 @@
 const isProduction = window.location.hostname !== 'localhost';
 
 // Use the correct API URL based on environment
-const API_BASE_URL = isProduction 
-  ? 'https://server-tau-one-67.vercel.app'
+const API_BASE_URL = isProduction
+  ? 'https://server-steel-three.vercel.app'
   : 'http://localhost:5000';
 
 // Log the environment for debugging
@@ -23,4 +23,4 @@ export const DATA_ENDPOINTS = {
   AVAILABILITY: (memberId) => `${API_BASE_URL}/api/availability/${memberId}`,
 };
 
-export default API_BASE_URL; 
+export default API_BASE_URL;
